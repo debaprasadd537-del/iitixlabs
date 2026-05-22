@@ -325,7 +325,7 @@ function useTimerController() {
             totalDuration: newDuration,
           };
         }
-        return state;
+        return { ...state, _tick: Date.now() };
       });
     }, 1000);
 
@@ -801,68 +801,484 @@ function TopBar({ page, user, onLogout, sidebarOpen, setSidebarOpen }) {
 
 // ─── DASHBOARD PAGE ────────────────────────────────────────────────────────
 function DashboardPage({ user, profile }) {
-  const tasks = store.get("tasks_" + user?.id, []);
-  const tests = store.get("tests_" + user?.id, []);
-  const today = new Date().toISOString().split("T")[0];
-  const attendance = store.get("attendanceRecords", {})[today];
+  const uid = user?.id || "guest";
+  const tasks = store.get("tasks_" + uid, []);
+  const tests = store.get("tests_" + uid, []);
+  const sessions = store.get("sessions", []);
 
   const completedTasks = tasks.filter(t => t.status === "done").length;
   const examYear = parseInt(profile?.year || "2027");
   const daysLeft = Math.max(0, Math.ceil((new Date(examYear, 3, 20) - new Date()) / 86400000));
+  const pendingTests = tests.filter(t => !t.result).length;
+
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    return d.toISOString().split("T")[0];
+  });
+  const last7Focus = last7Days.map(date => {
+    const daySessions = sessions.filter(s => new Date(s.timestamp).toISOString().split("T")[0] === date);
+    return Math.round(daySessions.reduce((a, s) => a + s.duration, 0) / 60000);
+  });
+  const avgFocus = last7Focus.some(v => v > 0) ? Math.round(last7Focus.reduce((a, v) => a + v, 0) / 7) : 0;
+
+  const focusTrend = last7Days.slice().reverse().map(date => {
+    const daySessions = sessions.filter(s => new Date(s.timestamp).toISOString().split("T")[0] === date);
+    const d = new Date(date);
+    return { day: d.toLocaleDateString("en", { weekday: "short" }), minutes: Math.round(daySessions.reduce((a, s) => a + s.duration, 0) / 60000) };
+  });
+
+  const profileData = profile || {};
 
   return (
     <div>
       <div style={{ marginBottom: "clamp(20px, 3vw, 28px)" }}>
-        <h1 style={{ ...s.h1, marginBottom: 4 }}>Dashboard</h1>
+        <h1 style={{ ...s.h1, marginBottom: 4 }}>Command Dashboard</h1>
         <p style={{ ...s.muted }}>Your operational command center</p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "clamp(10px, 2vw, 16px)", marginBottom: "clamp(20px, 3vw, 28px)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "clamp(10px, 2vw, 16px)", marginBottom: "clamp(20px, 3vw, 28px)" }}>
         <div style={{ ...s.card, borderTop: `2px solid ${C.cyan}` }}>
-          <div style={{ ...s.label, marginBottom: 8 }}>Days Left</div>
-          <div style={{ fontSize: "clamp(20px, 3.5vw, 24px)", fontWeight: 200, color: C.cyan }}>{daysLeft}</div>
+          <div style={{ ...s.label, marginBottom: 8 }}>Mission Countdown</div>
+          <div style={{ fontSize: "clamp(24px, 4vw, 30px)", fontWeight: 200, color: C.cyan }}>{daysLeft}</div>
+          <div style={{ ...s.muted, fontSize: 11, marginTop: 4 }}>days to exam</div>
         </div>
         <div style={{ ...s.card, borderTop: `2px solid ${C.success}` }}>
-          <div style={{ ...s.label, marginBottom: 8 }}>Tasks</div>
-          <div style={{ fontSize: "clamp(20px, 3.5vw, 24px)", fontWeight: 200, color: C.success }}>{completedTasks}/{tasks.length}</div>
+          <div style={{ ...s.label, marginBottom: 8 }}>Tasks Complete</div>
+          <div style={{ fontSize: "clamp(24px, 4vw, 30px)", fontWeight: 200, color: C.success }}>{completedTasks}/{tasks.length}</div>
+          <div style={{ ...s.muted, fontSize: 11, marginTop: 4 }}>done / total</div>
         </div>
         <div style={{ ...s.card, borderTop: `2px solid ${C.warning}` }}>
-          <div style={{ ...s.label, marginBottom: 8 }}>Tests</div>
-          <div style={{ fontSize: "clamp(20px, 3.5vw, 24px)", fontWeight: 200, color: C.warning }}>{tests.filter(t => !t.result).length}</div>
+          <div style={{ ...s.label, marginBottom: 8 }}>Upcoming Tests</div>
+          <div style={{ fontSize: "clamp(24px, 4vw, 30px)", fontWeight: 200, color: C.warning }}>{pendingTests}</div>
+          <div style={{ ...s.muted, fontSize: 11, marginTop: 4 }}>pending</div>
         </div>
-        {attendance && (
-          <div style={{ ...s.card, borderTop: `2px solid ${attendance.status === "green" ? C.success : attendance.status === "yellow" ? C.warning : C.danger}` }}>
-            <div style={{ ...s.label, marginBottom: 8 }}>Status</div>
-            <div style={{ fontSize: "clamp(12px, 1.8vw, 13px)", color: attendance.status === "green" ? C.success : attendance.status === "yellow" ? C.warning : C.danger, fontWeight: 500 }}>
-              {attendance.status === "green" ? "On Time" : attendance.status === "yellow" ? "Late" : "Very Late"}
-            </div>
-          </div>
-        )}
+        <div style={{ ...s.card, borderTop: `2px solid ${C.accentAlt}` }}>
+          <div style={{ ...s.label, marginBottom: 8 }}>Avg Focus</div>
+          <div style={{ fontSize: "clamp(24px, 4vw, 30px)", fontWeight: 200, color: C.accentAlt }}>{avgFocus}</div>
+          <div style={{ ...s.muted, fontSize: 11, marginTop: 4 }}>min/day (7-day avg)</div>
+        </div>
       </div>
 
-      {tasks.length > 0 && (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "clamp(16px, 2.5vw, 20px)" }}>
         <div style={s.card}>
-          <div style={{ ...s.h3, marginBottom: "clamp(12px, 2vw, 16px)" }}>Recent Tasks</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "clamp(6px, 1.5vw, 8px)" }}>
-            {tasks.slice(-5).reverse().map(t => (
-              <div key={t.id} style={{ display: "flex", alignItems: "center", gap: "clamp(10px, 2vw, 12px)", padding: "clamp(6px, 1.5vw, 8px) 0", borderBottom: `1px solid ${C.glassBorder}` }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.status === "done" ? C.success : t.status === "in-progress" ? C.warning : C.gray500, flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: "clamp(12px, 1.8vw, 13px)", color: C.white, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</span>
+          <div style={{ ...s.h3, marginBottom: 16 }}>Focus Trend — Last 7 Days</div>
+          {focusTrend.every(d => d.minutes === 0) ? (
+            <div style={{ color: C.gray300, fontSize: 13, textAlign: "center", padding: "24px 0" }}>No focus sessions yet — use the stopwatch to log study time</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={focusTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.glassBorder} />
+                <XAxis dataKey="day" tick={{ fill: C.gray300, fontSize: 11 }} />
+                <YAxis tick={{ fill: C.gray300, fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: C.navyMid, border: `1px solid ${C.glassBorder}`, borderRadius: 8 }} labelStyle={{ color: C.white }} itemStyle={{ color: C.cyan }} formatter={v => [v + " min", "Focus"]} />
+                <Line type="monotone" dataKey="minutes" stroke={C.cyan} strokeWidth={2} dot={{ fill: C.cyan, r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div style={s.card}>
+          <div style={{ ...s.h3, marginBottom: 16 }}>Profile Summary</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {[
+              { label: "Target Exam", value: profileData.exam || "—" },
+              { label: "Exam Year", value: profileData.year || "—" },
+              { label: "Mode", value: profileData.mode || "—" },
+              { label: "Target Rank", value: profileData.targetRank || "—" },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${C.glassBorder}` }}>
+                <span style={{ ...s.label }}>{label}</span>
+                <span style={{ fontSize: 14, color: C.white, fontWeight: 500 }}>{value}</span>
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── OPERATIONS PAGE ─────────────────────────────────────────────────────────
+function OperationsPage({ user }) {
+  const SUBJECTS = ["Physics", "Chemistry", "Mathematics", "Biology", "English", "Other"];
+  const PRIORITIES = ["High", "Medium", "Low"];
+  const uid = user?.id || "guest";
+
+  const [tasks, setTasks] = useState(() => store.get("tasks_" + uid, []));
+  const [filter, setFilter] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: "", subject: "Physics", deadline: "", priority: "Medium" });
+
+  const saveTasks = updated => { setTasks(updated); store.set("tasks_" + uid, updated); };
+
+  const addTask = () => {
+    if (!form.title.trim()) return;
+    const newTask = { id: Date.now(), title: form.title, subject: form.subject, deadline: form.deadline, priority: form.priority, status: "pending", createdAt: Date.now() };
+    saveTasks([...tasks, newTask]);
+    setForm({ title: "", subject: "Physics", deadline: "", priority: "Medium" });
+    setShowForm(false);
+  };
+
+  const toggleTask = id => saveTasks(tasks.map(t => t.id === id ? { ...t, status: t.status === "done" ? "pending" : "done" } : t));
+  const deleteTask = id => saveTasks(tasks.filter(t => t.id !== id));
+
+  const filtered = tasks.filter(t => filter === "all" ? true : filter === "done" ? t.status === "done" : t.status !== "done");
+  const priorityColor = p => p === "High" ? C.danger : p === "Medium" ? C.warning : C.success;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "clamp(20px, 3vw, 28px)", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ ...s.h1, marginBottom: 4 }}>Operations</h1>
+          <p style={{ ...s.muted }}>Manage your study tasks</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} style={{ ...s.btn }}>+ Add Task</button>
+      </div>
+
+      {showForm && (
+        <div style={{ ...s.card, marginBottom: "clamp(20px, 3vw, 28px)", border: `1px solid ${C.cyan}40` }}>
+          <div style={{ ...s.h3, marginBottom: 16 }}>New Task</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div style={{ ...s.label, marginBottom: 6 }}>Title</div>
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Task title..." style={{ ...s.input }} onKeyDown={e => e.key === "Enter" && addTask()} />
+            </div>
+            <div>
+              <div style={{ ...s.label, marginBottom: 6 }}>Subject</div>
+              <select value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} style={{ ...s.input }}>
+                {SUBJECTS.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ ...s.label, marginBottom: 6 }}>Priority</div>
+              <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} style={{ ...s.input }}>
+                {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ ...s.label, marginBottom: 6 }}>Deadline</div>
+              <input type="date" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} style={{ ...s.input }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={addTask} style={{ ...s.btn }}>Add Task</button>
+            <button onClick={() => setShowForm(false)} style={{ ...s.btnGhost }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginBottom: "clamp(16px, 2.5vw, 20px)", flexWrap: "wrap" }}>
+        {[["all", tasks.length], ["pending", tasks.filter(t => t.status !== "done").length], ["done", tasks.filter(t => t.status === "done").length]].map(([f, count]) => (
+          <button key={f} onClick={() => setFilter(f)} style={{
+            ...s.btnGhost, borderColor: filter === f ? C.cyan : C.glassBorder,
+            color: filter === f ? C.cyan : C.gray300, background: filter === f ? `${C.cyan}12` : "transparent",
+            padding: "6px 16px", fontSize: 12, textTransform: "capitalize",
+          }}>{f} ({count})</button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div style={{ ...s.card, textAlign: "center", padding: 40, color: C.gray300 }}>
+          {tasks.length === 0 ? 'No tasks yet — click "+ Add Task" to get started' : "No tasks in this filter"}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {filtered.map(t => (
+            <div key={t.id} style={{ ...s.card, display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", opacity: t.status === "done" ? 0.65 : 1 }}>
+              <input type="checkbox" checked={t.status === "done"} onChange={() => toggleTask(t.id)} style={{ width: 16, height: 16, accentColor: C.cyan, flexShrink: 0, cursor: "pointer" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, color: C.white, fontWeight: 500, textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ ...s.tag(C.cyan), fontSize: 11 }}>{t.subject}</span>
+                  {t.deadline && <span style={{ fontSize: 11, color: C.gray300 }}>📅 {t.deadline}</span>}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: priorityColor(t.priority), title: t.priority + " Priority" }} />
+                <button onClick={() => deleteTask(t.id)} style={{ background: "transparent", border: "none", color: C.danger, cursor: "pointer", fontSize: 14, padding: "4px 8px", borderRadius: 4 }}>✕</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-// Placeholder pages
-function OperationsPage() { return <div style={s.card}><div style={{ ...s.h2 }}>Operations</div><p style={s.muted}>Manage tasks and projects</p></div>; }
-function AnalyticsPage() { return <div style={s.card}><div style={{ ...s.h2 }}>Analytics</div><p style={s.muted}>View performance insights</p></div>; }
-function AssessmentsPage() { return <div style={s.card}><div style={{ ...s.h2 }}>Assessments</div><p style={s.muted}>Track test scores</p></div>; }
-function ReportsPage() { return <div style={s.card}><div style={{ ...s.h2 }}>Reports</div><p style={s.muted}>Generate detailed reports</p></div>; }
-function ProfilePage({ user, onLogout }) { return <div style={s.card}><div style={{ ...s.h2, marginBottom: 16 }}>{user?.name}</div><button onClick={onLogout} style={{ ...s.btn }}>Sign Out</button></div>; }
+// ─── ANALYTICS PAGE ──────────────────────────────────────────────────────────
+function AnalyticsPage({ user }) {
+  const uid = user?.id || "guest";
+  const tasks = store.get("tasks_" + uid, []);
+  const sessions = store.get("sessions", []);
+  const tests = store.get("tests_" + uid, []);
+
+  const subjectData = ["Physics", "Chemistry", "Mathematics", "Biology", "English", "Other"].map(sub => ({
+    subject: sub.slice(0, 4),
+    tasks: tasks.filter(t => t.subject === sub).length,
+    done: tasks.filter(t => t.subject === sub && t.status === "done").length,
+  })).filter(d => d.tasks > 0);
+
+  const focusTrendData = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (13 - i));
+    const dateStr = d.toISOString().split("T")[0];
+    const daySessions = sessions.filter(s => new Date(s.timestamp).toISOString().split("T")[0] === dateStr);
+    return { day: d.toLocaleDateString("en", { weekday: "short" }), minutes: Math.round(daySessions.reduce((a, s) => a + s.duration, 0) / 60000) };
+  });
+
+  const testData = tests.slice(-10).map(t => ({ name: (t.title || "Test").slice(0, 8), score: t.score || 0, topper: t.topper || 0 }));
+
+  return (
+    <div>
+      <div style={{ marginBottom: "clamp(20px, 3vw, 28px)" }}>
+        <h1 style={{ ...s.h1, marginBottom: 4 }}>Analytics</h1>
+        <p style={{ ...s.muted }}>Your performance insights</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "clamp(16px, 2.5vw, 20px)" }}>
+        <div style={s.card}>
+          <div style={{ ...s.h3, marginBottom: 16 }}>Subject Coverage</div>
+          {subjectData.length === 0 ? (
+            <div style={{ color: C.gray300, fontSize: 13, textAlign: "center", padding: 24 }}>No data yet — add tasks in Operations</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={subjectData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.glassBorder} />
+                <XAxis dataKey="subject" tick={{ fill: C.gray300, fontSize: 11 }} />
+                <YAxis tick={{ fill: C.gray300, fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: C.navyMid, border: `1px solid ${C.glassBorder}`, borderRadius: 8 }} labelStyle={{ color: C.white }} />
+                <Bar dataKey="tasks" fill={`${C.cyan}99`} radius={[4, 4, 0, 0]} name="Total" />
+                <Bar dataKey="done" fill={C.success} radius={[4, 4, 0, 0]} name="Done" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div style={s.card}>
+          <div style={{ ...s.h3, marginBottom: 16 }}>Focus Trend — 14 Days</div>
+          {focusTrendData.every(d => d.minutes === 0) ? (
+            <div style={{ color: C.gray300, fontSize: 13, textAlign: "center", padding: 24 }}>No data yet — use the stopwatch to log sessions</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={focusTrendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.glassBorder} />
+                <XAxis dataKey="day" tick={{ fill: C.gray300, fontSize: 11 }} />
+                <YAxis tick={{ fill: C.gray300, fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: C.navyMid, border: `1px solid ${C.glassBorder}`, borderRadius: 8 }} labelStyle={{ color: C.white }} formatter={v => [v + " min", "Focus"]} />
+                <Line type="monotone" dataKey="minutes" stroke={C.cyan} strokeWidth={2} dot={{ fill: C.cyan, r: 3 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div style={{ ...s.card, gridColumn: "1 / -1" }}>
+          <div style={{ ...s.h3, marginBottom: 16 }}>Test Scores vs Topper</div>
+          {testData.length === 0 ? (
+            <div style={{ color: C.gray300, fontSize: 13, textAlign: "center", padding: 24 }}>No data yet — log test results in Assessments</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={testData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.glassBorder} />
+                <XAxis dataKey="name" tick={{ fill: C.gray300, fontSize: 11 }} />
+                <YAxis tick={{ fill: C.gray300, fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: C.navyMid, border: `1px solid ${C.glassBorder}`, borderRadius: 8 }} labelStyle={{ color: C.white }} />
+                <Area type="monotone" dataKey="topper" stroke={C.warning} fill={`${C.warning}20`} strokeWidth={2} name="Topper" />
+                <Area type="monotone" dataKey="score" stroke={C.cyan} fill={`${C.cyan}20`} strokeWidth={2} name="Your Score" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ASSESSMENTS PAGE ────────────────────────────────────────────────────────
+function AssessmentsPage({ user }) {
+  const uid = user?.id || "guest";
+  const [tests, setTests] = useState(() => store.get("tests_" + uid, []));
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: "", date: "", score: "", topper: "", total: "100" });
+
+  const saveTests = updated => { setTests(updated); store.set("tests_" + uid, updated); };
+  const addTest = () => {
+    if (!form.title.trim()) return;
+    saveTests([...tests, { id: Date.now(), title: form.title, date: form.date, score: Number(form.score), topper: Number(form.topper), total: Number(form.total), result: !!form.score }]);
+    setForm({ title: "", date: "", score: "", topper: "", total: "100" });
+    setShowForm(false);
+  };
+  const deleteTest = id => saveTests(tests.filter(t => t.id !== id));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "clamp(20px, 3vw, 28px)", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ ...s.h1, marginBottom: 4 }}>Assessments</h1>
+          <p style={{ ...s.muted }}>Track your test scores</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} style={{ ...s.btn }}>+ Log Test</button>
+      </div>
+
+      {showForm && (
+        <div style={{ ...s.card, marginBottom: 20, border: `1px solid ${C.cyan}40` }}>
+          <div style={{ ...s.h3, marginBottom: 16 }}>New Test Result</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div style={{ ...s.label, marginBottom: 6 }}>Test Name</div>
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. JEE Mock #3" style={{ ...s.input }} />
+            </div>
+            <div>
+              <div style={{ ...s.label, marginBottom: 6 }}>Date</div>
+              <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={{ ...s.input }} />
+            </div>
+            <div>
+              <div style={{ ...s.label, marginBottom: 6 }}>Total Marks</div>
+              <input type="number" value={form.total} onChange={e => setForm(f => ({ ...f, total: e.target.value }))} style={{ ...s.input }} />
+            </div>
+            <div>
+              <div style={{ ...s.label, marginBottom: 6 }}>Your Score</div>
+              <input type="number" value={form.score} onChange={e => setForm(f => ({ ...f, score: e.target.value }))} style={{ ...s.input }} />
+            </div>
+            <div>
+              <div style={{ ...s.label, marginBottom: 6 }}>Topper Score</div>
+              <input type="number" value={form.topper} onChange={e => setForm(f => ({ ...f, topper: e.target.value }))} style={{ ...s.input }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={addTest} style={{ ...s.btn }}>Log Test</button>
+            <button onClick={() => setShowForm(false)} style={{ ...s.btnGhost }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {tests.length === 0 ? (
+        <div style={{ ...s.card, textAlign: "center", padding: 40, color: C.gray300 }}>No test results yet — log your first test above</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {tests.slice().reverse().map(t => {
+            const pct = t.total ? Math.round((t.score / t.total) * 100) : 0;
+            const color = pct >= 70 ? C.success : pct >= 50 ? C.warning : C.danger;
+            return (
+              <div key={t.id} style={{ ...s.card, display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, color: C.white, fontWeight: 500, marginBottom: 4 }}>{t.title}</div>
+                  <div style={{ fontSize: 12, color: C.gray300 }}>{t.date}</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 20, fontWeight: 200, color }}>{t.score}/{t.total}</div>
+                  <div style={{ ...s.label, color }}>{pct}%</div>
+                </div>
+                {t.topper > 0 && (
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 13, color: C.warning }}>{t.topper}</div>
+                    <div style={{ ...s.label }}>Topper</div>
+                  </div>
+                )}
+                <button onClick={() => deleteTest(t.id)} style={{ background: "transparent", border: "none", color: C.danger, cursor: "pointer", fontSize: 14, padding: "4px 8px" }}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── REPORTS PAGE ─────────────────────────────────────────────────────────────
+function ReportsPage({ user }) {
+  const uid = user?.id || "guest";
+  const tasks = store.get("tasks_" + uid, []);
+  const sessions = store.get("sessions", []);
+  const tests = store.get("tests_" + uid, []);
+
+  const weekData = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    const dateStr = d.toISOString().split("T")[0];
+    const daySessions = sessions.filter(s => new Date(s.timestamp).toISOString().split("T")[0] === dateStr);
+    return { day: d.toLocaleDateString("en", { weekday: "short" }), focus: Math.round(daySessions.reduce((a, s) => a + s.duration, 0) / 60000) };
+  });
+
+  const totalFocusMinutes = Math.round(sessions.reduce((a, s) => a + s.duration, 0) / 60000);
+  const avgScore = tests.length ? Math.round(tests.reduce((a, t) => a + (t.total ? (t.score / t.total) * 100 : 0), 0) / tests.length) : null;
+
+  return (
+    <div>
+      <div style={{ marginBottom: "clamp(20px, 3vw, 28px)" }}>
+        <h1 style={{ ...s.h1, marginBottom: 4 }}>Reports</h1>
+        <p style={{ ...s.muted }}>Weekly performance summary</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <div style={{ ...s.card, borderTop: `2px solid ${C.cyan}` }}>
+          <div style={{ ...s.label, marginBottom: 8 }}>Total Focus</div>
+          <div style={{ fontSize: 22, fontWeight: 200, color: C.cyan }}>{Math.floor(totalFocusMinutes / 60)}h {totalFocusMinutes % 60}m</div>
+        </div>
+        <div style={{ ...s.card, borderTop: `2px solid ${C.success}` }}>
+          <div style={{ ...s.label, marginBottom: 8 }}>Tasks Done</div>
+          <div style={{ fontSize: 22, fontWeight: 200, color: C.success }}>{tasks.filter(t => t.status === "done").length}/{tasks.length}</div>
+        </div>
+        <div style={{ ...s.card, borderTop: `2px solid ${C.warning}` }}>
+          <div style={{ ...s.label, marginBottom: 8 }}>Avg Score</div>
+          <div style={{ fontSize: 22, fontWeight: 200, color: C.warning }}>{avgScore !== null ? avgScore + "%" : "—"}</div>
+        </div>
+        <div style={{ ...s.card, borderTop: `2px solid ${C.accentAlt}` }}>
+          <div style={{ ...s.label, marginBottom: 8 }}>Tests Logged</div>
+          <div style={{ fontSize: 22, fontWeight: 200, color: C.accentAlt }}>{tests.length}</div>
+        </div>
+      </div>
+
+      <div style={s.card}>
+        <div style={{ ...s.h3, marginBottom: 16 }}>Focus This Week</div>
+        {weekData.every(d => d.focus === 0) ? (
+          <div style={{ color: C.gray300, fontSize: 13, textAlign: "center", padding: 24 }}>No focus sessions logged this week</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={weekData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.glassBorder} />
+              <XAxis dataKey="day" tick={{ fill: C.gray300, fontSize: 11 }} />
+              <YAxis tick={{ fill: C.gray300, fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: C.navyMid, border: `1px solid ${C.glassBorder}`, borderRadius: 8 }} labelStyle={{ color: C.white }} formatter={v => [v + " min", "Focus"]} />
+              <Bar dataKey="focus" fill={C.cyan} opacity={0.8} radius={[4, 4, 0, 0]} name="Focus (min)" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── PROFILE PAGE ─────────────────────────────────────────────────────────────
+function ProfilePage({ user, onLogout }) {
+  const profile = store.get("profile_" + user?.id, {});
+  return (
+    <div>
+      <div style={{ marginBottom: "clamp(20px, 3vw, 28px)" }}>
+        <h1 style={{ ...s.h1, marginBottom: 4 }}>Profile</h1>
+        <p style={{ ...s.muted }}>Your operator profile</p>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16, marginBottom: 20 }}>
+        <div style={s.card}>
+          <div style={{ ...s.h3, marginBottom: 16 }}>Identity</div>
+          {[["Name", user?.name], ["ID", user?.id], ["Email", user?.email]].map(([label, value]) => (
+            <div key={label} style={{ marginBottom: 14 }}>
+              <div style={{ ...s.label, marginBottom: 4 }}>{label}</div>
+              <div style={{ color: label === "ID" ? C.cyan : C.white, fontSize: label === "ID" ? 13 : 15 }}>{value || "—"}</div>
+            </div>
+          ))}
+        </div>
+        <div style={s.card}>
+          <div style={{ ...s.h3, marginBottom: 16 }}>Exam Profile</div>
+          {[["Target Exam", profile?.exam], ["Exam Year", profile?.year], ["Mode", profile?.mode], ["Target Rank", profile?.targetRank]].map(([label, value]) => (
+            <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.glassBorder}` }}>
+              <span style={{ ...s.label }}>{label}</span>
+              <span style={{ fontSize: 14, color: label === "Target Rank" ? C.cyan : C.white, fontWeight: 500 }}>{value || "—"}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <button onClick={onLogout} style={{ ...s.btnOutline }}>Sign Out</button>
+    </div>
+  );
+}
 
 // ─── DAILY INITIALIZATION ─────────────────────────────────────────────────────
 function DailyInitialization({ user, onComplete }) {
@@ -993,10 +1409,10 @@ export default function AppEnhanced() {
           {page === "dashboard" && <DashboardPage user={user} profile={profile} />}
           {page === "focus" && <FocusSystemsPage pomodoroState={pomodoroState} setPomodoroState={setPomodoroState} stopwatchState={stopwatchState} setStopwatchState={setStopwatchState} timerActive={timerActive} />}
           {page === "attendance" && <AttendanceModule />}
-          {page === "operations" && <OperationsPage />}
-          {page === "analytics" && <AnalyticsPage />}
-          {page === "assessments" && <AssessmentsPage />}
-          {page === "reports" && <ReportsPage />}
+          {page === "operations" && <OperationsPage user={user} />}
+          {page === "analytics" && <AnalyticsPage user={user} />}
+          {page === "assessments" && <AssessmentsPage user={user} />}
+          {page === "reports" && <ReportsPage user={user} />}
           {page === "profile" && <ProfilePage user={user} onLogout={handleLogout} />}
         </div>
       </div>

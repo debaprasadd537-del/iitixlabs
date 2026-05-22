@@ -1,0 +1,80 @@
+CRITICAL FIXES REQUIRED — Edit existing files only.
+Do not create new files. Do not touch Attendance 
+module — it is working perfectly.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 1 — DASHBOARD RESTORE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The dashboard is missing most of its original 
+content. Restore these exact sections:
+
+TOP ROW — 4 KPI cards:
+- Mission Countdown (days remaining to exam date)
+- Tasks Complete (done/total format)
+- Upcoming Tests (count of pending tests)
+- Avg Focus (average from human performance logs)
+
+BOTTOM ROW — 2 large panels:
+- Focus Trend: line graph of last 7 days focus 
+  scores from human performance data
+- Profile Summary: shows exam, year, mode, 
+  target rank from user onboarding data
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 2 — OPERATIONS PAGE RESTORE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Operations page is completely blank — only shows 
+header text. Restore full task management UI:
+
+- "Add Task" button at top right
+- Form fields: Title, Subject dropdown, 
+  Deadline date picker, Priority dropdown
+- Task list below showing all created tasks
+- Each task shows: title, subject badge, 
+  deadline, priority color indicator
+- Checkbox to mark task complete
+- Delete button per task
+- Filter buttons: All / Pending / Done
+- Tasks must persist in localStorage
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 3 — ANALYTICS/REPORTS GRAPHS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+All charts are blank. Restore using recharts 
+library which is already installed:
+
+- Subject Coverage: bar chart showing task 
+  count per subject
+- Focus Trend: line chart of focus scores 
+  over last 14 days
+- Test Scores: area chart comparing your 
+  score vs topper score
+- Show "No data yet" message only when 
+  there is genuinely no data
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIX 4 — POMODORO TIMER DRIFT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Timer is skipping seconds — jumping 5 seconds 
+at a time instead of counting 1 by 1.
+
+Fix using timestamp-based calculation:
+- When timer starts, save startTimestamp = 
+  Date.now() to localStorage
+- Save totalDuration in localStorage
+- Every second calculate:
+  elapsed = Date.now() - startTimestamp
+  remaining = totalDuration - elapsed
+- This prevents any drift or skipping
+- Timer must survive navigation between 
+  modules without resetting
+- Timer must survive page refresh
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IMPORTANT RULES:
+- Edit AppEnhanced.jsx only
+- Do not create new component files
+- Do not touch Attendance — working perfectly
+- Do not change login/onboarding flow
+- Verify app builds with no errors after changes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
