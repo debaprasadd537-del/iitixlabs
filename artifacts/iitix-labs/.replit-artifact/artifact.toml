@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "IITIX Labs — Operational Intelligence Platform"
+version = "1.0.0"
+id = "artifacts/iitix-labs"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21612
+
+[services.development]
+run = "pnpm --filter @workspace/iitix-labs run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/iitix-labs", "run", "build" ]
+publicDir = "artifacts/iitix-labs/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21612"
+BASE_PATH = "/"
