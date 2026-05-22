@@ -37,9 +37,9 @@ const POMODORO_PRESETS = {
 };
 
 const s = {
-  app: (sidebarOpen) => ({ minHeight: "100vh", background: C.navy, color: C.white, fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "column", "@media (min-width: 768px)": { flexDirection: "row" } }),
-  sidebar: (open) => ({ width: "100%", minHeight: "auto", background: C.navyMid, display: open ? "flex" : "none", flexDirection: "column", "@media (min-width: 768px)": { display: "flex", width: 220, minHeight: "100vh", borderRight: `1px solid ${C.glassBorder}` } }),
-  backdrop: (open) => ({ display: open ? "block" : "none", position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 99, "@media (min-width: 768px)": { display: "none" } }),
+  app: () => ({ minHeight: "100vh", background: C.navy, color: C.white, fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "row" }),
+  sidebar: () => ({ width: 220, minWidth: 220, minHeight: "100vh", background: C.navyMid, display: "flex", flexDirection: "column", borderRight: `1px solid ${C.glassBorder}`, flexShrink: 0 }),
+  backdrop: () => ({ display: "none" }),
   main: { flex: 1, display: "flex", flexDirection: "column", overflow: "auto" },
   topbar: { height: "auto", background: C.navyMid, borderBottom: `1px solid ${C.glassBorder}`, display: "flex", alignItems: "center", padding: "clamp(12px, 3vw, 28px)", gap: 16, flexShrink: 0, position: "relative", zIndex: 50 },
   content: { flex: 1, padding: "clamp(16px, 4vw, 28px)", overflowY: "auto" },
@@ -622,7 +622,7 @@ function AttendanceModule() {
 
       {/* Mark Attendance Button or Status */}
       {!attendance[today] ? (
-        <button onClick={markAttendance} style={{ ...s.btn, marginBottom: "clamp(20px, 3vw, 28px)", width: "100%", "@media (min-width: 768px)": { width: "auto" } }}>
+        <button onClick={markAttendance} style={{ ...s.btn, marginBottom: "clamp(20px, 3vw, 28px)" }}>
           Mark Attendance for Today
         </button>
       ) : (
@@ -735,12 +735,12 @@ function Sidebar({ active, onNav, user, sidebarOpen, setSidebarOpen, timerActive
     <>
       <div style={{ ...s.backdrop(sidebarOpen), onClick: () => setSidebarOpen(false) }} />
       <div style={{ ...s.sidebar(sidebarOpen) }}>
-        <div style={{ padding: "clamp(12px, 2.5vw, 16px)", borderBottom: `1px solid ${C.glassBorder}`, display: "none", "@media (min-width: 768px)": { display: "block" } }}>
+        <div style={{ padding: "clamp(12px, 2.5vw, 16px)", borderBottom: `1px solid ${C.glassBorder}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: 6, background: `linear-gradient(135deg, ${C.cyan}, ${C.accentAlt})`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, color: C.navy }}>IX</div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: "clamp(12px, 1.8vw, 13px)", letterSpacing: "0.1em", color: C.white }}>IITIX LABS</div>
-              <div style={{ fontSize: "clamp(8px, 1.3vw, 9px)", color: C.gray300, letterSpacing: "0.1em" }}>COMMAND</div>
+              <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: "0.1em", color: C.white }}>IITIX LABS</div>
+              <div style={{ fontSize: 9, color: C.gray300, letterSpacing: "0.1em" }}>COMMAND</div>
             </div>
           </div>
         </div>
@@ -757,14 +757,14 @@ function Sidebar({ active, onNav, user, sidebarOpen, setSidebarOpen, timerActive
                 transition: "all 0.15s", position: "relative",
               }}>
                 <span style={{ fontSize: "clamp(14px, 2vw, 16px)", flexShrink: 0 }}>{n.icon}</span>
-                <span style={{ display: "none", "@media (min-width: 768px)": { display: "inline" } }}>{n.label}</span>
+                <span>{n.label}</span>
                 {showDot && <div style={{ position: "absolute", right: 12, width: 6, height: 6, borderRadius: "50%", background: C.cyan, animation: "pulse 1.5s infinite" }} />}
               </button>
             );
           })}
         </div>
 
-        <div style={{ padding: "clamp(12px, 2vw, 12px)", borderTop: `1px solid ${C.glassBorder}`, fontSize: "clamp(10px, 1.5vw, 11px)", display: "none", "@media (min-width: 768px)": { display: "block" } }}>
+        <div style={{ padding: "clamp(12px, 2vw, 12px)", borderTop: `1px solid ${C.glassBorder}`, fontSize: "clamp(10px, 1.5vw, 11px)" }}>
           <div style={{ color: C.gray500, marginBottom: 4, letterSpacing: "0.06em" }}>OPERATOR</div>
           {user && (
             <>
@@ -784,17 +784,13 @@ function TopBar({ page, user, onLogout, sidebarOpen, setSidebarOpen }) {
   const labels = { dashboard: "Command Dashboard", focus: "Focus Systems", attendance: "Attendance", operations: "Operations", analytics: "Analytics", assessments: "Assessments", reports: "Reports", profile: "Profile" };
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "clamp(12px, 2vw, 16px)", width: "100%" }}>
-      <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ background: "transparent", border: "none", color: C.cyan, fontSize: "clamp(18px, 3vw, 20px)", cursor: "pointer", "@media (min-width: 768px)": { display: "none" } }}>
-        {sidebarOpen ? "✕" : "☰"}
-      </button>
-
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: "clamp(14px, 2.5vw, 15px)", fontWeight: 500, color: C.white, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{labels[page] || page}</div>
         <div style={{ fontSize: "clamp(10px, 1.5vw, 11px)", color: C.gray300, letterSpacing: "0.04em" }}>Operational Intelligence</div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "clamp(8px, 2vw, 12px)", flexShrink: 0 }}>
-        <div style={{ fontSize: "clamp(10px, 1.5vw, 12px)", color: C.gray300, display: "none", "@media (min-width: 768px)": { display: "inline" } }}>
+        <div style={{ fontSize: "clamp(10px, 1.5vw, 12px)", color: C.gray300 }}>
           {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
         </div>
         <button onClick={onLogout} style={{ ...s.btnGhost, padding: "clamp(6px, 1.5vw, 6px) clamp(10px, 2vw, 12px)", fontSize: "clamp(11px, 1.8vw, 12px)" }}>Sign out</button>
@@ -986,7 +982,7 @@ export default function AppEnhanced() {
   if (screen === "daily-init") return <DailyInitialization user={user} onComplete={handleDailyInit} />;
 
   return (
-    <div style={{ minHeight: "100vh", background: C.navy, color: C.white, fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "column", "@media (min-width: 768px)": { flexDirection: "row" } }}>
+    <div style={{ minHeight: "100vh", background: C.navy, color: C.white, fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif", display: "flex", flexDirection: "row" }}>
       <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }`}</style>
       <Sidebar active={page} onNav={setPage} user={user} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} timerActive={timerActive} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "auto" }}>
