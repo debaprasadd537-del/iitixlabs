@@ -1,11 +1,5 @@
 {
-  "version": 2,
-  "installCommand": "pnpm install",
-  "buildCommand": "pnpm --filter @workspace/iitix-labs run build",
-  "outputDirectory": "artifacts/iitix-labs/dist/public",
-  "framework": null,
-  "env": {
-    "PORT": "3000",
-    "BASE_PATH": "/"
-  }
+  "buildCommand": "cd artifacts/iitix-labs && pnpm install && pnpm run build",
+  "outputDirectory": "artifacts/iitix-labs/dist",
+  "installCommand": "pnpm install"
 }
