@@ -1,5 +1,8 @@
 {
   "buildCommand": "cd artifacts/iitix-labs && pnpm install && pnpm run build",
   "outputDirectory": "artifacts/iitix-labs/dist",
-  "installCommand": "pnpm install"
+  "installCommand": "pnpm install",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
