@@ -1,7 +1,8 @@
 {
-  "buildCommand": "cd artifacts/iitix-labs && pnpm install && pnpm run build",
+  "buildCommand": "cd artifacts/iitix-labs && pnpm install && pnpm run build --skipLibCheck",
   "outputDirectory": "artifacts/iitix-labs/dist",
-  "installCommand": "pnpm install",
+  "installCommand": "echo 'skip'",
+  "framework": null,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
