@@ -1,6 +1,6 @@
 {
-  "buildCommand": "cd artifacts/iitix-labs && pnpm install --no-frozen-lockfile && ./node_modules/.bin/vite build",
-  "outputDirectory": "artifacts/iitix-labs/dist",
+  "buildCommand": "cd artifacts/iitix-labs && pnpm install --no-frozen-lockfile && npx vite build",
+  "outputDirectory": "artifacts/iitix-labs/dist/public",
   "installCommand": "echo skip",
   "framework": null,
   "rewrites": [
